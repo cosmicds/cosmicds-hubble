@@ -5,7 +5,6 @@ from echo import delay_callback
 from glue.core import Data
 from glue_jupyter import JupyterApplication
 from hubbleds.base_component_state import transition_next, transition_previous
-from ipywwt import WWTWidget
 import numpy as np
 from pathlib import Path
 import reacton.ipyvuetify as rv
@@ -14,7 +13,7 @@ from solara.toestand import Ref
 from typing import Dict, List, Tuple
 
 from cosmicds.components import ScaffoldAlert, StateEditor, ViewerLayout
-from hubbleds.components import DataTable, HubbleExpUniverseSlideshow, LineDrawViewer, PlotlyLayerToggle
+from hubbleds.components import DataTable, HubbleExpUniverseSlideshow, LineDrawViewer, PlotlyLayerToggle, Stage4WaitingScreen
 from hubbleds.state import LOCAL_STATE, GLOBAL_STATE, StudentMeasurement, get_multiple_choice, get_free_response, mc_callback, fr_callback
 from hubbleds.viewers.hubble_scatter_viewer import HubbleScatterView
 from .component_state import COMPONENT_STATE, Marker
@@ -68,8 +67,7 @@ def Page():
         measurements.set(class_measurements)
     
         class_data_points = [m for m in class_measurements if m.student_id in student_ids.value]
-        # Ref(LOCAL_STATE.fields.enough_students_ready).set(len(class_data_points) >= min(100, 5 * GLOBAL_STATE.value.classroom.size))
-        Ref(LOCAL_STATE.fields.enough_students_ready).set(len(class_data_points) >= 100)
+        Ref(LOCAL_STATE.fields.enough_students_ready).set(len(class_data_points) >= min(50, 5 * GLOBAL_STATE.value.classroom.size))
             
         return class_data_points
 
@@ -80,18 +78,21 @@ def Page():
             points = load_class_data()
             count += 1
             ready = len(points) >= 100 - 10 * count
-            if ready != enough_students_ready.value:
-                enough_students_ready.set(ready)
+            logger.info(100 - 10 * count)
+            logger.info(ready)
+            logger.info(enough_students_ready.value)
+            logger.info("======")
+            if ready:
+                enough_students_ready.set(True)
             await asyncio.sleep(10)
 
     solara.lab.use_task(keep_checking_class_data, dependencies=[])
 
     if COMPONENT_STATE.value.current_step == Marker.wwt_wait:
-        with rv.Card():
-            WWTWidget.element()
-            solara.Button(label="Advance",
-                          on_click=lambda: transition_next(COMPONENT_STATE),
-                          disabled=not LOCAL_STATE.value.enough_students_ready)
+        Stage4WaitingScreen(
+            can_advance=LOCAL_STATE.value.enough_students_ready,
+            on_advance_click=lambda: transition_next(COMPONENT_STATE),
+        )
         return
 
 
