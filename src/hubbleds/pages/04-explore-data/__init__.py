@@ -61,13 +61,20 @@ def Page():
         logger.info(len(class_measurements))
         measurements = Ref(LOCAL_STATE.fields.class_measurements)
         student_ids = Ref(LOCAL_STATE.fields.stage_4_class_data_students)
-        if class_measurements and not student_ids.value:
+        if not class_measurements:
+            return []
+
+        if student_ids.value:
+            class_data_points = [m for m in class_measurements if m.student_id in student_ids.value]
+        else:
+            class_data_points = class_measurements
             ids = [int(id) for id in np.unique([m.student_id for m in class_measurements])]
-            student_ids.set(ids)
+            ready = len(class_measurements) >= min(50, 5 * GLOBAL_STATE.value.classroom.size)
+            if ready:
+                ids = [int(id) for id in np.unique([m.student_id for m in class_measurements])]
+                student_ids.set(ids)
+                Ref(LOCAL_STATE.fields.enough_students_ready).set(True)
         measurements.set(class_measurements)
-    
-        class_data_points = [m for m in class_measurements if m.student_id in student_ids.value]
-        Ref(LOCAL_STATE.fields.enough_students_ready).set(len(class_data_points) >= min(50, 5 * GLOBAL_STATE.value.classroom.size))
             
         return class_data_points
 
