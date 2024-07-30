@@ -72,18 +72,9 @@ def Page():
         return class_data_points
 
     async def keep_checking_class_data():
-        count = 0
         enough_students_ready = Ref(LOCAL_STATE.fields.enough_students_ready)
         while not enough_students_ready.value:
-            points = load_class_data()
-            count += 1
-            ready = len(points) >= 100 - 10 * count
-            logger.info(100 - 10 * count)
-            logger.info(ready)
-            logger.info(enough_students_ready.value)
-            logger.info("======")
-            if ready:
-                enough_students_ready.set(True)
+            load_class_data()
             await asyncio.sleep(10)
 
     solara.lab.use_task(keep_checking_class_data, dependencies=[])
