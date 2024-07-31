@@ -80,6 +80,7 @@ def Page():
 
     async def keep_checking_class_data():
         enough_students_ready = Ref(LOCAL_STATE.fields.enough_students_ready)
+        LOCAL_API.update_class_size(LOCAL_STATE.value.story_id, GLOBAL_STATE)
         while not enough_students_ready.value:
             load_class_data()
             await asyncio.sleep(10)
