@@ -250,8 +250,8 @@ def Page():
                 num += 1
         obs_wave_total.set(num)
     
-
-    StateEditor(Marker, COMPONENT_STATE, LOCAL_STATE, LOCAL_API)
+    if (GLOBAL_STATE.value.show_team_interface):
+        StateEditor(Marker, COMPONENT_STATE, LOCAL_STATE, LOCAL_API)
 
     with rv.Row():
         with rv.Col(cols=4):

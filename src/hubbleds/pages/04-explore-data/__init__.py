@@ -147,7 +147,8 @@ def Page():
     if load_class_data.value:
         _on_class_data_loaded(load_class_data.value)
 
-    StateEditor(Marker, COMPONENT_STATE, LOCAL_STATE, LOCAL_API)
+    if (GLOBAL_STATE.value.show_team_interface):
+        StateEditor(Marker, COMPONENT_STATE, LOCAL_STATE, LOCAL_API)
 
     with solara.ColumnsResponsive(12, large=[4,8]):
         with rv.Col():

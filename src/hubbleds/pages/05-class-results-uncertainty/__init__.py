@@ -301,7 +301,8 @@ def Page():
     line_fit_tool = viewers["layer"].toolbar.tools['hubble:linefit']
     add_callback(line_fit_tool, 'active',  _on_best_fit_line_shown)
 
-    StateEditor(Marker, COMPONENT_STATE, LOCAL_STATE, LOCAL_API)
+    if (GLOBAL_STATE.value.show_team_interface):
+        StateEditor(Marker, COMPONENT_STATE, LOCAL_STATE, LOCAL_API)
 
     def _on_component_state_loaded(value: bool):
         if not value:

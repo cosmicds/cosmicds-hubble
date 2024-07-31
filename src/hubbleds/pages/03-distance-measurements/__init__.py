@@ -185,8 +185,8 @@ def Page():
         
     solara.use_memo(_state_callback_setup)
 
-
-    StateEditor(Marker, cast(solara.Reactive[BaseState],COMPONENT_STATE), LOCAL_STATE, LOCAL_API)
+    if (GLOBAL_STATE.value.show_team_interface):
+        StateEditor(Marker, cast(solara.Reactive[BaseState],COMPONENT_STATE), LOCAL_STATE, LOCAL_API)
     
 
     def put_measurements(samples):
