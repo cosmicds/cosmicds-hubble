@@ -324,6 +324,19 @@ class LocalAPI(BaseAPI):
 
         return measurements.value
 
+    def get_class_measurements_count(
+        self,
+        global_state: Reactive[GlobalState],
+        local_state: Reactive[LocalState],
+    ) -> int:
+        url = (
+            f"{self.API_URL}/{local_state.value.story_id}/class-measurements/"
+            f"{global_state.value.student.id}/{global_state.value.classroom.class_info['id']}"
+        )
+        r = self.request_session.get(url)
+        # TODO: Handle non-200 status codes
+        return r.json()["measurement_count"]
+
     def get_all_data(
         self,
         local_state: Reactive[LocalState],
