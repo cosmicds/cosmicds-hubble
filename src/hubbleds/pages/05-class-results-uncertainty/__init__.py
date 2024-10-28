@@ -121,7 +121,7 @@ def Page():
         for att in ('x_min', 'x_max'):
             link((all_student_hist_viewer.state, att), (class_hist_viewer.state, att))
 
-        LOCAL_API.update_class_size(LOCAL_STATE.value.story_id, GLOBAL_STATE)
+        LOCAL_API.update_class_size(GLOBAL_STATE)
 
         if not LOCAL_STATE.value.measurements_loaded:
             LOCAL_API.get_measurements(GLOBAL_STATE, LOCAL_STATE)

@@ -33,6 +33,10 @@ def Page():
     loaded_component_state = solara.use_reactive(False)
     router = solara.use_router()
 
+    class_plot_data = solara.use_reactive([])
+
+    # LOCAL_API.update_class_size(GLOBAL_STATE)
+
     async def _load_component_state():
         # Load stored component state from database, measurement data is
         # considered higher-level and is loaded when the story starts
@@ -54,56 +58,6 @@ def Page():
         logger.info("Wrote component state to database.")
 
     solara.lab.use_task(_write_component_state, dependencies=[COMPONENT_STATE.value])
-
-    def load_class_data():
-        logger.info("Loading class data")
-        class_measurements = LOCAL_API.get_class_measurements(GLOBAL_STATE, LOCAL_STATE)
-        logger.info(len(class_measurements))
-        measurements = Ref(LOCAL_STATE.fields.class_measurements)
-        student_ids = Ref(LOCAL_STATE.fields.stage_4_class_data_students)
-        if not class_measurements:
-            return []
-
-        if student_ids.value:
-            class_data_points = [m for m in class_measurements if m.student_id in student_ids.value]
-        else:
-            class_data_points = class_measurements
-            ids = [int(id) for id in np.unique([m.student_id for m in class_measurements])]
-            ready = len(class_measurements) >= min(50, 5 * GLOBAL_STATE.value.classroom.size)
-            if ready:
-                ids = [int(id) for id in np.unique([m.student_id for m in class_measurements])]
-                student_ids.set(ids)
-                Ref(LOCAL_STATE.fields.enough_students_ready).set(True)
-        measurements.set(class_measurements)
-            
-        return class_data_points
-
-    async def keep_checking_class_data():
-        enough_students_ready = Ref(LOCAL_STATE.fields.enough_students_ready)
-        LOCAL_API.update_class_size(LOCAL_STATE.value.story_id, GLOBAL_STATE)
-        while not enough_students_ready.value:
-            load_class_data()
-            await asyncio.sleep(10)
-
-    solara.lab.use_task(keep_checking_class_data, dependencies=[])
-
-    if COMPONENT_STATE.value.current_step == Marker.wwt_wait:
-        Stage4WaitingScreen(
-            can_advance=LOCAL_STATE.value.enough_students_ready,
-            on_advance_click=lambda: transition_next(COMPONENT_STATE),
-        )
-        return
-
-
-    class_plot_data = solara.use_reactive([])
-
-    student_plot_data = solara.use_reactive(LOCAL_STATE.value.measurements)
-    async def _load_student_data():
-        if not LOCAL_STATE.value.measurements_loaded:
-            logger.info("Loading measurements")
-            measurements = LOCAL_API.get_measurements(GLOBAL_STATE, LOCAL_STATE)
-            student_plot_data.set(measurements)
-    solara.lab.use_task(_load_student_data)
 
     def glue_setup() -> Tuple[JupyterApplication, Dict[str, CDSScatterView]]:
         gjapp = JupyterApplication(
@@ -140,8 +94,28 @@ def Page():
 
     gjapp, viewers = solara.use_memo(glue_setup, dependencies=[])
 
-    if not (load_class_data.finished or load_class_data.pending):
-        load_class_data()
+    def load_class_data():
+        logger.info("Loading class data")
+        class_measurements = LOCAL_API.get_class_measurements(GLOBAL_STATE, LOCAL_STATE)
+        logger.info(len(class_measurements))
+        measurements = Ref(LOCAL_STATE.fields.class_measurements)
+        student_ids = Ref(LOCAL_STATE.fields.stage_4_class_data_students)
+        if not class_measurements:
+            return []
+
+        if student_ids.value:
+            class_data_points = [m for m in class_measurements if m.student_id in student_ids.value]
+        else:
+            class_data_points = class_measurements
+            ids = [int(id) for id in np.unique([m.student_id for m in class_measurements])]
+            ready = len(class_measurements) >= min(50, 5 * GLOBAL_STATE.value.classroom.size)
+            if ready:
+                ids = [int(id) for id in np.unique([m.student_id for m in class_measurements])]
+                student_ids.set(ids)
+                Ref(LOCAL_STATE.fields.enough_students_ready).set(True)
+        measurements.set(class_measurements)
+            
+        return class_data_points
 
     def _on_class_data_loaded(class_data_points: List[StudentMeasurement]):
         logger.info("Setting up class glue data")
@@ -170,8 +144,36 @@ def Page():
 
         class_plot_data.set(class_data_points)
 
-    if load_class_data.finished:
-        _on_class_data_loaded(load_class_data.value)
+    async def keep_checking_class_data():
+        enough_students_ready = Ref(LOCAL_STATE.fields.enough_students_ready)
+        data = load_class_data()
+        while not enough_students_ready.value:
+            print("About to check")
+            await asyncio.sleep(10)
+            data = load_class_data()
+        _on_class_data_loaded(data)
+
+    class_ready_task = solara.lab.use_task(keep_checking_class_data, dependencies=[])
+
+    if COMPONENT_STATE.value.current_step == Marker.wwt_wait:
+        Stage4WaitingScreen(
+            can_advance=LOCAL_STATE.value.enough_students_ready,
+            on_advance_click=lambda: transition_next(COMPONENT_STATE),
+        )
+        return
+
+
+    student_plot_data = solara.use_reactive(LOCAL_STATE.value.measurements)
+    async def _load_student_data():
+        if not LOCAL_STATE.value.measurements_loaded:
+            logger.info("Loading measurements")
+            measurements = LOCAL_API.get_measurements(GLOBAL_STATE, LOCAL_STATE)
+            student_plot_data.set(measurements)
+    solara.lab.use_task(_load_student_data)
+
+
+    if not (class_ready_task.finished or class_ready_task.pending):
+        load_class_data()
 
     StateEditor(Marker, COMPONENT_STATE, LOCAL_STATE, LOCAL_API, show_all=True)
 
