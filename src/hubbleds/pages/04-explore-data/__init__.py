@@ -108,7 +108,7 @@ def Page():
         else:
             class_data_points = class_measurements
             ids = [int(id) for id in np.unique([m.student_id for m in class_measurements])]
-            ready = len(class_measurements) >= min(50, 5 * GLOBAL_STATE.value.classroom.size)
+            ready = len(class_measurements) >= 60
             if ready:
                 ids = [int(id) for id in np.unique([m.student_id for m in class_measurements])]
                 student_ids.set(ids)
