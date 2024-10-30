@@ -112,13 +112,13 @@ def DistanceToolComponent(galaxy, show_ruler, angular_size_callback, ruler_count
     
     solara.use_effect(turn_on_guard, [use_guard])
     
-    def reset_canvas():
+    def _reset_canvas():
         logger.info('resetting canvas')
         widget = cast(DistanceTool,solara.get_widget(tool))
         widget.reset_canvas()
     
     
-    solara.use_effect(reset_canvas, [reset_canvas])
+    solara.use_effect(_reset_canvas, [reset_canvas])
 
     def _define_callbacks():
         widget = cast(DistanceTool,solara.get_widget(tool))
@@ -441,7 +441,6 @@ def Page():
         
         if marker_new == Marker.dot_seq5:
             # clear the canvas before we get to the second measurement. 
-            COMPONENT_STATE.value.show_ruler = False
             reset_canvas.set(reset_canvas.value + 1)
             
             
@@ -545,11 +544,10 @@ def Page():
 
             @solara.lab.computed
             def current_galaxy():
-                galaxy = COMPONENT_STATE.value.selected_galaxy
-                example_galaxy = COMPONENT_STATE.value.selected_example_galaxy
-                gal = example_galaxy if on_example_galaxy_marker.value else galaxy
-                logger.info(f'current_galaxy: {gal}')
-                return gal
+                if on_example_galaxy_marker.value:
+                    return COMPONENT_STATE.value.selected_example_galaxy
+                else:
+                    return COMPONENT_STATE.value.selected_galaxy
 
             @solara.lab.computed
             def current_data():
@@ -608,7 +606,8 @@ def Page():
             def _get_ruler_clicks_cb(count):
                 ruler_click_count = Ref(COMPONENT_STATE.fields.ruler_click_count)
                 ruler_click_count.set(count)
-
+            
+            # solara.Button("Reset Canvas", on_click=lambda: reset_canvas.set(reset_canvas.value + 1))
             DistanceToolComponent(
                 galaxy=current_galaxy.value,
                 show_ruler=COMPONENT_STATE.value.show_ruler,
@@ -617,7 +616,7 @@ def Page():
                 bad_measurement_callback=_bad_measurement_cb,
                 use_guard=True,
                 brightness_callback=lambda b: logger.info(f'Update Brightness: {b}'),
-                reset_canvas=reset_canvas
+                reset_canvas=reset_canvas.value
             )
             
             if COMPONENT_STATE.value.bad_measurement:
@@ -822,6 +821,13 @@ def Page():
                     value = galaxy["item"]["galaxy"] if flag else None
                     selected_galaxy = Ref(COMPONENT_STATE.fields.selected_galaxy)
                     selected_galaxy.set(value)
+                
+                @solara.lab.computed
+                def selected_galaxy_index():
+                    try:
+                        return [LOCAL_STATE.value.get_measurement_index(COMPONENT_STATE.value.selected_galaxy["id"])]
+                    except:
+                        return []
 
                 @solara.lab.computed
                 def table_kwargs():
@@ -833,6 +839,7 @@ def Page():
                         "items": table_data,
                         "highlighted": False,  # TODO: Set the markers for this,
                         "event_on_row_selected": update_galaxy,
+                        "selected_indices": selected_galaxy_index.value,
                         "show_select": True,
                         "button_icon": "mdi-tape-measure",
                         "show_button": COMPONENT_STATE.value.current_step_at_or_after(Marker.fil_rem1),
