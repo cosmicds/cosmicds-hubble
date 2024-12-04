@@ -35,6 +35,20 @@ def Page():
 
     class_plot_data = solara.use_reactive([])
 
+    # Which data layers to display in plotly viewer
+    layers_enabled = solara.use_reactive((False, True))
+
+    # Are the buttons available to press?
+    draw_enabled = solara.use_reactive(False)
+    fit_enabled = solara.use_reactive(False)
+    draw_active = solara.use_reactive(False)
+
+    # Are the plotly traces actively displayed?
+    display_best_fit_gal = solara.use_reactive(False)
+    clear_class_layer = solara.use_reactive(0)
+    clear_drawn_line = solara.use_reactive(0)
+    clear_fit_line = solara.use_reactive(0)
+
     # LOCAL_API.update_class_size(GLOBAL_STATE)
 
     async def _load_component_state():
@@ -114,13 +128,10 @@ def Page():
         else:
             class_data_points = class_measurements
             ids = [int(id) for id in np.unique([m.student_id for m in class_measurements])]
-            ready = len(class_measurements) >= 60
-            if ready:
-                ids = [int(id) for id in np.unique([m.student_id for m in class_measurements])]
-                student_ids.set(ids)
-                Ref(LOCAL_STATE.fields.enough_students_ready).set(True)
+            student_ids.set(ids)
         measurements.set(class_measurements)
-            
+
+        _on_class_data_loaded(class_data_points)
         return class_data_points
 
     def _on_class_data_loaded(class_data_points: List[StudentMeasurement]):
@@ -164,13 +175,6 @@ def Page():
         load_class_data()
         transition_next(COMPONENT_STATE)
 
-    if COMPONENT_STATE.value.current_step == Marker.wwt_wait:
-        Stage4WaitingScreen(
-            can_advance=LOCAL_STATE.value.enough_students_ready,
-            on_advance_click=_on_waiting_room_advance,
-        )
-        return
-
     student_plot_data = solara.use_reactive(LOCAL_STATE.value.measurements)
     async def _load_student_data():
         if not LOCAL_STATE.value.measurements_loaded:
@@ -179,9 +183,15 @@ def Page():
             student_plot_data.set(measurements)
     solara.lab.use_task(_load_student_data)
 
-
     if not (class_ready_task.finished or class_ready_task.pending):
         load_class_data()
+
+    if COMPONENT_STATE.value.current_step == Marker.wwt_wait:
+        Stage4WaitingScreen(
+            can_advance=LOCAL_STATE.value.enough_students_ready,
+            on_advance_click=_on_waiting_room_advance,
+        )
+        return
 
     StateEditor(Marker, COMPONENT_STATE, LOCAL_STATE, LOCAL_API, show_all=True)
 
@@ -369,20 +379,6 @@ def Page():
                 can_advance=COMPONENT_STATE.value.can_transition(next=True),
                 show=COMPONENT_STATE.value.is_current_step(Marker.sho_est2),
             )
-
-        # Which data layers to display in plotly viewer
-        layers_enabled = solara.use_reactive((False, True))
-
-        # Are the buttons available to press?
-        draw_enabled = solara.use_reactive(False)
-        fit_enabled = solara.use_reactive(False)
-        draw_active = solara.use_reactive(False)
-
-        # Are the plotly traces actively displayed?
-        display_best_fit_gal = solara.use_reactive(False)
-        clear_class_layer = solara.use_reactive(0)
-        clear_drawn_line = solara.use_reactive(0)
-        clear_fit_line = solara.use_reactive(0)
 
         def _on_marker_update(marker):
             if Marker.is_between(marker, Marker.tre_dat2, Marker.hub_exp1):
