@@ -94,6 +94,12 @@ def Page():
 
     gjapp, viewers = solara.use_memo(glue_setup, dependencies=[])
 
+    def check_completed_students_count():
+        logger.info("Checking how many students have completed measurements")
+        count = LOCAL_API.get_students_completed_measurements_count(GLOBAL_STATE, LOCAL_STATE)
+        logger.info(f"Count: {count}")
+        return count
+
     def load_class_data():
         logger.info("Loading class data")
         class_measurements = LOCAL_API.get_class_measurements(GLOBAL_STATE, LOCAL_STATE)
@@ -146,22 +152,24 @@ def Page():
 
     async def keep_checking_class_data():
         enough_students_ready = Ref(LOCAL_STATE.fields.enough_students_ready)
-        data = load_class_data()
+        count = check_completed_students_count()
         while not enough_students_ready.value:
-            print("About to check")
+            if count >= 12:
+                enough_students_ready.set(True)
             await asyncio.sleep(10)
-            data = load_class_data()
-        _on_class_data_loaded(data)
 
     class_ready_task = solara.lab.use_task(keep_checking_class_data, dependencies=[])
+
+    def _on_waiting_room_advance():
+        load_class_data()
+        transition_next(COMPONENT_STATE)
 
     if COMPONENT_STATE.value.current_step == Marker.wwt_wait:
         Stage4WaitingScreen(
             can_advance=LOCAL_STATE.value.enough_students_ready,
-            on_advance_click=lambda: transition_next(COMPONENT_STATE),
+            on_advance_click=_on_waiting_room_advance,
         )
         return
-
 
     student_plot_data = solara.use_reactive(LOCAL_STATE.value.measurements)
     async def _load_student_data():
