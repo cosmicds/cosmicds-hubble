@@ -3,11 +3,14 @@ import reacton.ipyvuetify as rv
 import solara
 from typing import Callable
 
+from hubbleds.components.counter import Counter
+
 
 @solara.component
 def Stage4WaitingScreen(
     can_advance: bool,
     on_advance_click: Callable,
+    completed_count: int,
 ):
 
     with rv.Card():
@@ -29,6 +32,8 @@ def Stage4WaitingScreen(
                     )
 
                 WWTWidget.element()
+
+                Counter(text="Number of classmates who have completed measurements", value=completed_count)
 
                 with solara.Row():
                     solara.Button(label="Advance",

@@ -33,6 +33,8 @@ def Page():
     loaded_component_state = solara.use_reactive(False)
     router = solara.use_router()
 
+    completed_count = solara.use_reactive(0)
+
     class_plot_data = solara.use_reactive([])
 
     # Which data layers to display in plotly viewer
@@ -164,14 +166,16 @@ def Page():
     async def keep_checking_class_data():
         enough_students_ready = Ref(LOCAL_STATE.fields.enough_students_ready)
         count = check_completed_students_count()
-        while not enough_students_ready.value:
-            if count >= 12:
+        while True:
+            if (not enough_students_ready.value) and count >= 12:
                 enough_students_ready.set(True)
+            completed_count.set(count)
             await asyncio.sleep(10)
 
     class_ready_task = solara.lab.use_task(keep_checking_class_data, dependencies=[])
 
     def _on_waiting_room_advance():
+        class_ready_task.cancel()
         load_class_data()
         transition_next(COMPONENT_STATE)
 
@@ -188,6 +192,7 @@ def Page():
 
     if COMPONENT_STATE.value.current_step == Marker.wwt_wait:
         Stage4WaitingScreen(
+            completed_count=completed_count.value,
             can_advance=LOCAL_STATE.value.enough_students_ready,
             on_advance_click=_on_waiting_room_advance,
         )
