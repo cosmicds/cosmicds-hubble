@@ -165,7 +165,8 @@ def Page():
 
     async def keep_checking_class_data():
         enough_students_ready = Ref(LOCAL_STATE.fields.enough_students_ready)
-        while True:
+        # Add a state guard in case task cancellation fails
+        while COMPONENT_STATE.value.current_step == Marker.wwt_wait:
             count = check_completed_students_count()
             if (not enough_students_ready.value) and count >= 12:
                 enough_students_ready.set(True)
@@ -197,6 +198,11 @@ def Page():
             on_advance_click=_on_waiting_room_advance,
         )
         return
+    else:
+        try:
+            class_ready_task.cancel()
+        except RuntimeError:
+            pass
 
     StateEditor(Marker, COMPONENT_STATE, LOCAL_STATE, LOCAL_API, show_all=True)
 
