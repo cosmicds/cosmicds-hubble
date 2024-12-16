@@ -325,6 +325,19 @@ class LocalAPI(BaseAPI):
 
         return measurements.value
 
+    def get_students_completed_measurements_count(
+        self,
+        global_state: Reactive[GlobalState],
+        local_state: Reactive[LocalState],
+    ) -> int:
+        url = (
+            f"{self.API_URL}/{local_state.value.story_id}/class-measurements/students-completed/"
+            f"{global_state.value.student.id}/{global_state.value.classroom.class_info['id']}"
+        )
+        r = self.request_session.get(url)
+        # TODO: Handle non-200 status codes
+        return r.json()["students_completed_measurements"]
+
     def get_all_data(
         self,
         global_state: Reactive[GlobalState],

@@ -12,6 +12,7 @@ import enum
 from typing import Any
 
 class Marker(enum.Enum, BaseMarker):
+    wwt_wait = enum.auto()
     exp_dat1 = enum.auto()
     tre_dat1 = enum.auto() # MC tre-dat-mc1
     tre_dat2 = enum.auto()

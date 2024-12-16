@@ -1,3 +1,4 @@
+import asyncio
 from cosmicds.utils import empty_data_from_model_class, DEFAULT_VIEWER_HEIGHT
 from cosmicds.viewers import CDSScatterView
 from echo import delay_callback
@@ -12,7 +13,7 @@ from solara.toestand import Ref
 from typing import Dict, List, Tuple
 
 from cosmicds.components import ScaffoldAlert, StateEditor, ViewerLayout
-from hubbleds.components import DataTable, HubbleExpUniverseSlideshow, LineDrawViewer, PlotlyLayerToggle
+from hubbleds.components import DataTable, HubbleExpUniverseSlideshow, LineDrawViewer, PlotlyLayerToggle, Stage4WaitingScreen
 from hubbleds.state import LOCAL_STATE, GLOBAL_STATE, StudentMeasurement, get_multiple_choice, get_free_response, mc_callback, fr_callback
 from hubbleds.viewers.hubble_scatter_viewer import HubbleScatterView
 from .component_state import COMPONENT_STATE, Marker
@@ -26,27 +27,31 @@ logger = setup_logger("STAGE 4")
 GUIDELINE_ROOT = Path(__file__).parent / "guidelines"
 
 
-@solara.lab.task
-async def load_class_data():
-    logger.info("Loading class data")
-    class_measurements = LOCAL_API.get_class_measurements(GLOBAL_STATE, LOCAL_STATE)
-    logger.info(len(class_measurements))
-    measurements = Ref(LOCAL_STATE.fields.class_measurements)
-    student_ids = Ref(LOCAL_STATE.fields.stage_4_class_data_students)
-    if class_measurements and not student_ids.value:
-        ids = [int(id) for id in np.unique([m.student_id for m in class_measurements])]
-        student_ids.set(ids)
-    measurements.set(class_measurements)
-
-    class_data_points = [m for m in class_measurements if m.student_id in student_ids.value]
-    return class_data_points
-
-
 @solara.component
 def Page():
     solara.Title("HubbleDS")
     loaded_component_state = solara.use_reactive(False)
     router = solara.use_router()
+
+    completed_count = solara.use_reactive(0)
+
+    class_plot_data = solara.use_reactive([])
+
+    # Which data layers to display in plotly viewer
+    layers_enabled = solara.use_reactive((False, True))
+
+    # Are the buttons available to press?
+    draw_enabled = solara.use_reactive(False)
+    fit_enabled = solara.use_reactive(False)
+    draw_active = solara.use_reactive(False)
+
+    # Are the plotly traces actively displayed?
+    display_best_fit_gal = solara.use_reactive(False)
+    clear_class_layer = solara.use_reactive(0)
+    clear_drawn_line = solara.use_reactive(0)
+    clear_fit_line = solara.use_reactive(0)
+
+    # LOCAL_API.update_class_size(GLOBAL_STATE)
 
     async def _load_component_state():
         # Load stored component state from database, measurement data is
@@ -72,16 +77,6 @@ def Page():
 
 
     solara.lab.use_task(_write_component_state, dependencies=[COMPONENT_STATE.value])
-
-    class_plot_data = solara.use_reactive([])
-
-    student_plot_data = solara.use_reactive(LOCAL_STATE.value.measurements)
-    async def _load_student_data():
-        if not LOCAL_STATE.value.measurements_loaded:
-            logger.info("Loading measurements")
-            measurements = LOCAL_API.get_measurements(GLOBAL_STATE, LOCAL_STATE)
-            student_plot_data.set(measurements)
-    solara.lab.use_task(_load_student_data)
 
     def glue_setup() -> Tuple[JupyterApplication, Dict[str, CDSScatterView]]:
         gjapp = JupyterApplication(
@@ -118,8 +113,31 @@ def Page():
 
     gjapp, viewers = solara.use_memo(glue_setup, dependencies=[])
 
-    if not (load_class_data.finished or load_class_data.pending):
-        load_class_data()
+    def check_completed_students_count():
+        logger.info("Checking how many students have completed measurements")
+        count = LOCAL_API.get_students_completed_measurements_count(GLOBAL_STATE, LOCAL_STATE)
+        logger.info(f"Count: {count}")
+        return count
+
+    def load_class_data():
+        logger.info("Loading class data")
+        class_measurements = LOCAL_API.get_class_measurements(GLOBAL_STATE, LOCAL_STATE)
+        logger.info(len(class_measurements))
+        measurements = Ref(LOCAL_STATE.fields.class_measurements)
+        student_ids = Ref(LOCAL_STATE.fields.stage_4_class_data_students)
+        if not class_measurements:
+            return []
+
+        if student_ids.value:
+            class_data_points = [m for m in class_measurements if m.student_id in student_ids.value]
+        else:
+            class_data_points = class_measurements
+            ids = [int(id) for id in np.unique([m.student_id for m in class_measurements])]
+            student_ids.set(ids)
+        measurements.set(class_measurements)
+
+        _on_class_data_loaded(class_data_points)
+        return class_data_points
 
     def _on_class_data_loaded(class_data_points: List[StudentMeasurement]):
         logger.info("Setting up class glue data")
@@ -148,8 +166,46 @@ def Page():
 
         class_plot_data.set(class_data_points)
 
-    if load_class_data.finished:
-        _on_class_data_loaded(load_class_data.value)
+    async def keep_checking_class_data():
+        enough_students_ready = Ref(LOCAL_STATE.fields.enough_students_ready)
+        # Add a state guard in case task cancellation fails
+        while COMPONENT_STATE.value.current_step == Marker.wwt_wait:
+            count = check_completed_students_count()
+            if (not enough_students_ready.value) and count >= 12:
+                enough_students_ready.set(True)
+            completed_count.set(count)
+            await asyncio.sleep(10)
+
+    class_ready_task = solara.lab.use_task(keep_checking_class_data, dependencies=[])
+
+    def _on_waiting_room_advance():
+        class_ready_task.cancel()
+        load_class_data()
+        transition_next(COMPONENT_STATE)
+
+    student_plot_data = solara.use_reactive(LOCAL_STATE.value.measurements)
+    async def _load_student_data():
+        if not LOCAL_STATE.value.measurements_loaded:
+            logger.info("Loading measurements")
+            measurements = LOCAL_API.get_measurements(GLOBAL_STATE, LOCAL_STATE)
+            student_plot_data.set(measurements)
+    solara.lab.use_task(_load_student_data)
+
+    if not (class_ready_task.finished or class_ready_task.pending):
+        load_class_data()
+
+    if COMPONENT_STATE.value.current_step == Marker.wwt_wait:
+        Stage4WaitingScreen(
+            completed_count=completed_count.value,
+            can_advance=LOCAL_STATE.value.enough_students_ready,
+            on_advance_click=_on_waiting_room_advance,
+        )
+        return
+    else:
+        try:
+            class_ready_task.cancel()
+        except RuntimeError:
+            pass
 
     def _jump_stage_5():
         router.push("05-class-results-uncertainty")
@@ -344,20 +400,6 @@ def Page():
                 can_advance=COMPONENT_STATE.value.can_transition(next=True),
                 show=COMPONENT_STATE.value.is_current_step(Marker.sho_est2),
             )
-
-        # Which data layers to display in plotly viewer
-        layers_enabled = solara.use_reactive((False, True))
-
-        # Are the buttons available to press?
-        draw_enabled = solara.use_reactive(False)
-        fit_enabled = solara.use_reactive(False)
-        draw_active = solara.use_reactive(False)
-
-        # Are the plotly traces actively displayed?
-        display_best_fit_gal = solara.use_reactive(False)
-        clear_class_layer = solara.use_reactive(0)
-        clear_drawn_line = solara.use_reactive(0)
-        clear_fit_line = solara.use_reactive(0)
 
         def _on_marker_update(marker):
             if Marker.is_between(marker, Marker.tre_dat2, Marker.hub_exp1):
