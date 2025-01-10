@@ -22,8 +22,8 @@ def SelectionTool(
         def _add_widget():
             selection_tool_widget = SelectionToolWidget(
                 table_layer_data={
-                    k: [x.dict()[k] for x in LOCAL_STATE.value.galaxies]
-                    for k in LOCAL_STATE.value.galaxies[0].dict()
+                    k: [x.dict()[k] for x in LOCAL_STATE.value.galaxies.values()]
+                    for k in ["id", "ra", "decl"]
                 }
             )
 
@@ -38,16 +38,21 @@ def SelectionTool(
 
         solara.use_effect(_add_widget, dependencies=[])
 
+        def _on_galaxy_selected(gal: dict):
+            data = GalaxyData(**LOCAL_STATE.value.galaxies[gal["id"]])
+            galaxy_added_callback(data)
+
+        def _on_current_galaxy_changed(change: dict):
+            gal = change["new"]
+            data = GalaxyData(**LOCAL_STATE.value.galaxies[gal["id"]])
+            galaxy_added_callback(data)
+
         def _setup_callbacks():
             selection_tool_widget = solara.get_widget(tool_container).children[0]
 
-            selection_tool_widget.on_galaxy_selected = (
-                lambda gal: galaxy_added_callback(GalaxyData(**gal))
-            )
+            selection_tool_widget.on_galaxy_selected = _on_galaxy_selected
             selection_tool_widget.observe(
-                lambda change: galaxy_selected_callback(
-                    GalaxyData(**change["new"]) if len(change["new"]) > 0 else None
-                ),
+                _on_current_galaxy_changed,
                 ["current_galaxy"],
             )
             selection_tool_widget.deselect_galaxy = deselect_galaxy_callback

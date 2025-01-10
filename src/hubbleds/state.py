@@ -141,10 +141,11 @@ class LocalState(BaseLocalState):
     last_route: Optional[str] = None
 
     @cached_property
-    def galaxies(self) -> list[GalaxyData]:
+    def galaxies(self) -> dict[int, GalaxyData]:
         from hubbleds.remote import LOCAL_API
 
-        return LOCAL_API.get_galaxies(LOCAL_STATE)
+        gal_data = LOCAL_API.get_galaxies(LOCAL_STATE)
+        return { galaxy.id: galaxy for galaxy in gal_data }
 
     def as_dict(self):
         return self.model_dump(exclude={

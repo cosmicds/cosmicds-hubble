@@ -83,10 +83,9 @@ class SelectionToolWidget(v.VueTemplate):
             source = wwt.most_recent_source
             galaxy = source["layerData"]
 
-            for k in ["ra", "decl", "z"]:
+            for k in ["ra", "decl"]:
                 galaxy[k] = float(galaxy[k])
 
-            galaxy["element"] = galaxy["element"].replace("?", "α")  # Hacky fix for now
             fov = min(wwt.get_fov(), GALAXY_FOV)
 
             self.go_to_location(galaxy["ra"], galaxy["decl"], fov=fov)
@@ -94,9 +93,9 @@ class SelectionToolWidget(v.VueTemplate):
             self.candidate_galaxy = galaxy
 
             if not self.selected_data.empty:
-                gal_names = [k for k in self.selected_data["name"]]
+                gal_ids = [k for k in self.selected_data["id"]]
 
-                if self.current_galaxy["name"] in gal_names:
+                if self.current_galaxy["id"] in gal_ids:
                     self.candidate_galaxy = {}
 
             self.selected = True
@@ -197,11 +196,6 @@ class SelectionToolWidget(v.VueTemplate):
             return
         if self.current_galaxy["id"]:
             data = {"galaxy_id": int(self.current_galaxy["id"])}
-        else:
-            name = self.current_galaxy["name"]
-            if not name.endswith(".fits"):
-                name += ".fits"
-            data = {"galaxy_name": name}
-        GLOBAL_STATE.request_session().put(
-            f"{API_URL}/{HUBBLE_ROUTE_PATH}/mark-galaxy-bad", json=data
-        )
+            GLOBAL_STATE.request_session().put(
+                f"{API_URL}/{HUBBLE_ROUTE_PATH}/mark-galaxy-bad", json=data
+            )
