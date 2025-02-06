@@ -1,4 +1,4 @@
-from pydantic import BaseModel, field_validator, Field
+from pydantic import BaseModel, field_validator, Field, computed_field
 from cosmicds.state import BaseState
 from hubbleds.base_marker import BaseMarker
 import enum
@@ -115,6 +115,13 @@ class ComponentState(BaseComponentState, BaseState):
     velocity_reflection_state: VelocityReflection = VelocityReflection()
     reflection_complete: bool = False
     show_dop_cal4_values: bool = False
+
+    # computed fields are included in the model when serialized
+    @computed_field
+    @property
+    def total_steps(self) -> int:
+        # ignore the last marker, which is a dummy marker
+        return len(Marker) - 1
 
     @field_validator("current_step", mode="before")
     def convert_int_to_enum(cls, v: Any) -> Marker:

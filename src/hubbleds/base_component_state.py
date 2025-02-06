@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-
+from pydantic import computed_field
 from cosmicds.state import BaseState
 from hubbleds.base_marker import BaseMarker
 from solara import Reactive
@@ -38,6 +38,30 @@ def transition_previous(component_state: Reactive[BaseComponentStateT], force=Tr
 
 class BaseComponentState:
     current_step: BaseMarker
+    _max_step: int = 0 # not included in model
+    
+    # computed fields are included in the model when serialized
+    @computed_field
+    @property
+    def max_step(self) -> int:
+        self._max_step = max(self.current_step.value, self._max_step) # type: ignore
+        return self._max_step
+    
+    @computed_field
+    @property
+    def total_steps(self) -> int:
+        # compute the total number of steps based on current_steps
+        # this may be overridden in subclasses
+        return len(self.current_step.__class__)
+    
+    @computed_field
+    @property
+    def progress(self) -> float:
+        # first enum value is always 1
+        first = 1 #self.current_step.first().value
+        # last = self.total_steps + first #self.current_step.last().value
+        current = self.current_step.value
+        return (current - first + 1) / self.total_steps
 
     def is_current_step(self, step: BaseMarker):
         return self.current_step.value == step.value

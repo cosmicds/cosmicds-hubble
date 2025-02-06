@@ -1,6 +1,6 @@
 import solara
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, computed_field
 
 from cosmicds.state import BaseState
 from hubbleds.base_marker import BaseMarker
@@ -49,6 +49,17 @@ class ComponentState(BaseComponentState, BaseState):
     best_fit_gal_vel: float = 100
     best_fit_gal_dist: float = 8000
     class_data_displayed: bool = False
+    
+    _max_step: int = 0 # not included in model
+    
+    # computed fields are included in the model when serialized
+    @computed_field
+    @property
+    def total_steps(self) -> int:
+        # ignore the last marker, which is a dummy marker
+        return len(Marker) - 1
+
+
 
     @field_validator("current_step", mode="before")
     def convert_int_to_enum(cls, v: Any) -> Marker:

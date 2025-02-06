@@ -2,7 +2,7 @@
 import solara
 from solara.toestand import Ref
 
-from hubbleds.components import Stage2Slideshow
+from hubbleds.components import Stage2Slideshow, STAGE_2_SLIDESHOW_LENGTH
 from hubbleds.state import LOCAL_STATE, GLOBAL_STATE, get_multiple_choice, mc_callback 
 from .component_state import COMPONENT_STATE
 from hubbleds.remote import LOCAL_API
@@ -57,7 +57,7 @@ def Page():
     Stage2Slideshow(
         step = COMPONENT_STATE.value.distance_slideshow_state.step,
         max_step_completed = COMPONENT_STATE.value.distance_slideshow_state.max_step_completed,
-        length = 13,
+        length = STAGE_2_SLIDESHOW_LENGTH,
         titles = [
             "1920's Astronomy",
             "1920's Astronomy",
