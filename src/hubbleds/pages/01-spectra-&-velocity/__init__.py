@@ -473,6 +473,7 @@ def Page():
                 title += " (2nd Measurement)"
             solara.Text(title)
             solara.Text(f"Ignored layers: {ignore}")
+            solara.Switch(label='show bins', value = Ref(COMPONENT_STATE.fields.highlight_bins))
             DotplotViewer(
                 gjapp,
                 title=title,
@@ -490,6 +491,7 @@ def Page():
                 x_bounds=dotplot_bounds,
                 reset_bounds=dotplot_reset_bounds,
                 hide_layers=ignore,  # type: ignore
+                highlight_bins=COMPONENT_STATE.value.highlight_bins
             )
         return main
     
