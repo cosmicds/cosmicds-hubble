@@ -42,11 +42,15 @@ def SelectionTool(
         solara.use_effect(_add_widget, dependencies=[])
 
         def _on_galaxy_selected(gal: dict):
+            if not gal:
+                return
             data = LOCAL_STATE.value.galaxies[int(gal["id"])]
             galaxy_added_callback(data)
 
         def _on_current_galaxy_changed(change: dict):
             gal = change["new"]
+            if not gal:
+                return
             data = LOCAL_STATE.value.galaxies[int(gal["id"])]
             galaxy_selected_callback(data)
 
