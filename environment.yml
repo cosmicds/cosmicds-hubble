@@ -56,7 +56,7 @@ dependencies:
   - glfw==2.7.0
   - glue-core==1.21.0
   - glue-jupyter==0.21.0
-  - glue-plotly==0.10.1
+  - glue-plotly==0.12.0
   - glue-vispy-viewers==1.2.1
   - h11==0.14.0
   - hsluv==5.0.4
