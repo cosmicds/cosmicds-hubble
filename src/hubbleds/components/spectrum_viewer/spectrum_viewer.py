@@ -54,7 +54,7 @@ def SpectrumViewer(
 
         return galaxy_data.spectrum_as_data_frame
 
-    spec_data_task = solara.lab.use_task(
+    spec_data_task = solara.lab.use_task(  #noqa: SH101
         _load_spectrum,
         dependencies=[galaxy_data],
     )
